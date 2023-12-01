@@ -5,7 +5,18 @@ fn main() {
 }
 
 fn part1(input: &str) -> String {
-    "24000".to_string()
+    //let result = dbg!(input.split("/n").collect());
+    let result = input
+        .lines()
+        .map(|line| {
+            let mut final_string = String::from("");
+            let sub_string = line.trim_start().trim_matches(char::is_alphabetic);
+            final_string.push(sub_string.char_indices().nth(0).unwrap().1);
+            final_string.push(sub_string.char_indices().nth_back(0).unwrap().1);
+            final_string.parse::<u32>().unwrap()
+        })
+        .sum::<u32>();
+    result.to_string()
 }
 
 #[cfg(test)]
@@ -15,21 +26,11 @@ mod tests {
     #[test]
     fn it_works() {
         let result = part1(
-            "1000
-        2000
-        3000
-        
-        4000
-        
-        5000
-        6000
-        
-        7000
-        8000
-        9000
-        
-        10000",
+            "1abc2
+            pqr3stu8vwx
+            a1b2c3d4e5f
+            treb7uchet",
         );
-        assert_eq!(result, "24000".to_string());
+        assert_eq!(result, "142".to_string());
     }
 }
