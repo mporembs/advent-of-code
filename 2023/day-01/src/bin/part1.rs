@@ -9,11 +9,14 @@ fn part1(input: &str) -> String {
     let result = input
         .lines()
         .map(|line| {
-            let mut final_string = String::from("");
-            let sub_string = line.trim_start().trim_matches(char::is_alphabetic);
-            final_string.push(sub_string.char_indices().nth(0).unwrap().1);
-            final_string.push(sub_string.char_indices().nth_back(0).unwrap().1);
-            final_string.parse::<u32>().unwrap()
+            let mut char_it = line.chars().filter_map(|character| character.to_digit(10));
+            let first = char_it.next().expect("Should be a valid number.");
+            match char_it.last() {
+                Some(num) => format!("{first}{num}"),
+                None => format!("{first}{first}"),
+            }
+            .parse::<u32>()
+            .expect("Should be a number.")
         })
         .sum::<u32>();
     result.to_string()
