@@ -1,4 +1,3 @@
-use core::num;
 use itertools::Itertools;
 use std::collections::BTreeMap;
 
@@ -75,6 +74,7 @@ fn part1(input: &str) -> String {
             }
             // println!("{:?}", GridSpot)
         }
+        // dbg!(&numbers);
     }
     // dbg!(numbers);
 
@@ -134,7 +134,6 @@ fn part1(input: &str) -> String {
 
         // dbg!(is_part_number, n);
     }
-
     total.to_string()
 }
 
