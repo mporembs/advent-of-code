@@ -25,8 +25,6 @@ struct Coord {
 }
 
 fn part2(input: &str) -> String {
-    let mut total = 0;
-
     let grid = input
         .lines()
         .enumerate()
