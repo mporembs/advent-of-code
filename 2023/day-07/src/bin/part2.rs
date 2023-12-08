@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, HashMap};
 
 fn main() {
     let input = include_str!("./input1.txt");
-    let output = part1(input);
+    let output = part2(input);
     dbg!(output);
 }
 
@@ -23,24 +23,23 @@ struct Hand<'a> {
     cards: &'a str,
 }
 
-fn part1(input: &str) -> String {
+fn part2(input: &str) -> String {
     let mut scored_hands: BTreeMap<String, u32> = BTreeMap::new();
     let card_values = HashMap::from([
         ('A', "z"),
         ('K', "y"),
         ('Q', "x"),
-        ('J', "w"),
-        ('T', "v"),
-        ('9', "u"),
-        ('8', "t"),
-        ('7', "s"),
-        ('6', "r"),
-        ('5', "q"),
-        ('4', "p"),
-        ('3', "o"),
-        ('2', "n"),
+        ('J', "n"),
+        ('T', "w"),
+        ('9', "v"),
+        ('8', "u"),
+        ('7', "t"),
+        ('6', "s"),
+        ('5', "r"),
+        ('4', "q"),
+        ('3', "p"),
+        ('2', "o"),
     ]);
-
     let hands = input
         .lines()
         .map(|line| {
@@ -64,7 +63,7 @@ fn part1(input: &str) -> String {
 
     hands.iter().for_each(|hand| {
         let mut score_vec: Vec<&str> = Vec::new();
-        match get_hand_type(hand.cards) {
+        match hand_type(hand.cards) {
             HandType::FiveOfaKind => score_vec.push("7"),
             HandType::FourOfaKind => score_vec.push("6"),
             HandType::FullHouse => score_vec.push("5"),
@@ -78,6 +77,7 @@ fn part1(input: &str) -> String {
             .for_each(|character| score_vec.push(*card_values.get(&character).unwrap()));
         scored_hands.insert(score_vec.concat(), hand.bid);
     });
+    // dbg!(&scored_hands);
 
     let total = scored_hands
         .iter()
@@ -87,21 +87,25 @@ fn part1(input: &str) -> String {
     total.to_string()
 }
 
-fn get_hand_type(card: &str) -> HandType {
+fn hand_type(card: &str) -> HandType {
     let mut card_map: BTreeMap<char, u32> = BTreeMap::new();
-
     card.chars().for_each(|character| {
         card_map
             .entry(character)
             .and_modify(|count| *count += 1)
             .or_insert(1);
     });
+    let joker_count = card_map.remove(&'J').unwrap_or(0);
+
+    if joker_count == 5 {
+        return HandType::FiveOfaKind;
+    };
 
     let mut count_vec: Vec<(&char, &u32)> = card_map.iter().collect();
     count_vec.sort_by(|a, b| b.1.cmp(a.1));
     let mut count_iter = count_vec.iter();
 
-    match count_iter.next().unwrap().1 {
+    match (count_iter.next().unwrap().1) + joker_count {
         5 => HandType::FiveOfaKind,
         4 => HandType::FourOfaKind,
         3 => match count_iter.next().unwrap().1 {
@@ -124,13 +128,13 @@ mod tests {
 
     #[test]
     fn it_works() {
-        let result = part1(
+        let result = part2(
             "32T3K 765
 T55J5 684
 KK677 28
 KTJJT 220
 QQQJA 483",
         );
-        assert_eq!(result, "6440".to_string());
+        assert_eq!(result, "5905".to_string());
     }
 }
