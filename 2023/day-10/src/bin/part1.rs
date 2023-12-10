@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use itertools::Itertools;
 
 fn main() {
@@ -6,32 +8,89 @@ fn main() {
     dbg!(output);
 }
 
+#[derive(Debug, Ord, Eq, PartialEq, PartialOrd)]
+struct Location {
+    x: u32,
+    y: u32,
+}
+
 fn part1(input: &str) -> String {
-    let s_index = input.find('S').unwrap();
-    let row_length = input.lines().next().unwrap().len();
     let grid = input
         .lines()
-        .map(|line| {
-            line.chars()
-                .map(|char| match char {
-                    'S' => (5, 5, 5, 5),
-                    '|' => (1, 1, 0, 0),
-                    '-' => (0, 0, 1, 1),
-                    'F' => (0, 1, 1, 0),
-                    '7' => (0, 1, 0, 1),
-                    'L' => (1, 0, 1, 0),
-                    'J' => (1, 0, 0, 1),
-                    _ => (0, 0, 0, 0),
-                })
-                .collect_vec()
+        .enumerate()
+        .flat_map(|(y_index, line)| {
+            line.chars().enumerate().map(move |(x_index, char)| {
+                let grid_location = Location {
+                    x: x_index as u32,
+                    y: y_index as u32,
+                };
+                match char {
+                    'S' => (grid_location, vec!["start"]),
+                    '|' => (grid_location, vec!["up", "down"]),
+                    '-' => (grid_location, vec!["left", "right"]),
+                    'F' => (grid_location, vec!["down", "right"]),
+                    '7' => (grid_location, vec!["down", "left"]),
+                    'L' => (grid_location, vec!["up", "right"]),
+                    'J' => (grid_location, vec!["up", "left"]),
+                    _ => (grid_location, vec!["none"]),
+                }
+            })
         })
-        .collect_vec();
+        .collect::<BTreeMap<Location, Vec<&str>>>();
 
-    dbg!(input);
-    dbg!(grid);
-    dbg!(s_index);
+    let mut loop_complete = false;
+    let mut steps = 1;
+    let mut current_source = "up";
+    let mut current_postion = Location { x: 0, y: 3 };
 
-    "0".to_string()
+    while loop_complete == false {
+        // println!("--------------------");
+        // println!("Step {:?}", steps);
+        // println!("Coming from: {:?}", current_source);
+        // println!("Entering {:?}", current_postion);
+
+        let options = grid.get(&current_postion).unwrap();
+        // println!("It's options are: {:?}", options);
+
+        let selection = options
+            .iter()
+            .copied()
+            .filter(|option| *option != current_source)
+            .collect_vec();
+        // println!("Selected {:?}", selection);
+
+        match selection[0] {
+            "down" => {
+                current_source = "up";
+                current_postion.y += 1;
+                steps += 1;
+            }
+            "up" => {
+                current_source = "down";
+                current_postion.y -= 1;
+                steps += 1;
+            }
+            "left" => {
+                current_source = "right";
+                current_postion.x -= 1;
+                steps += 1;
+            }
+            "right" => {
+                current_source = "left";
+                current_postion.x += 1;
+                steps += 1;
+            }
+            _ => {
+                loop_complete = true;
+            }
+        }
+        // if steps >= 10 {
+        //     loop_complete = true;
+        // }
+    }
+    // dbg!(grid);
+
+    (steps / 2).to_string()
 }
 
 #[cfg(test)]
