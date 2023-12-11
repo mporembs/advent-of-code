@@ -43,9 +43,7 @@ fn part1(input: &str) -> String {
     let distances = galaxy_combos
         .iter()
         .map(|combo| {
-            ((combo[1].x as f64 - combo[0].x as f64).abs()
-                + (combo[1].y as f64 - combo[0].y as f64).abs())
-            .ceil()
+            (combo[1].x.abs_diff(combo[0].x) as f64 + combo[1].y.abs_diff(combo[0].y) as f64).ceil()
         })
         .sum::<f64>();
 
