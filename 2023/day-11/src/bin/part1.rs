@@ -1,6 +1,5 @@
-use std::collections::BTreeMap;
-
 use itertools::Itertools;
+use std::collections::BTreeMap;
 
 fn main() {
     let input = include_str!("./input1.txt");
@@ -33,15 +32,14 @@ fn part1(input: &str) -> String {
             })
         })
         .collect::<BTreeMap<Location, bool>>();
+
     let galaxies = grid
         .iter()
         .filter_map(|(location, is_galaxy)| is_galaxy.then_some(location))
         .collect_vec();
+
     let galaxy_combos = galaxies.iter().combinations(2).collect_vec();
-    // let galaxy_combos_iter = galaxy_combos
-    //     .iter()
-    //     .enumerate()
-    //     .for_each(|(combo_index, combo)| println!("Combo #{}: {:?}", combo_index, combo));
+
     let distances = galaxy_combos
         .iter()
         .map(|combo| {
@@ -50,21 +48,21 @@ fn part1(input: &str) -> String {
             .ceil()
         })
         .sum::<f64>();
-    // dbg!(&grid);
-    // dbg!(&galaxy_combos);
-    // println!("{} galaxy combos", { galaxy_combos.len() });
+
     distances.to_string()
 }
 
 fn expand(og_universe: &str, expansion_facter: usize) -> Vec<String> {
-    let row_length = og_universe.lines().next().expect("a line").len();
+    let row_length = og_universe.lines().next().unwrap().len();
     let empty_line = ".".repeat(row_length);
     let mut lines = og_universe.lines().map_into::<String>().collect_vec();
+
     let empty_rows = og_universe
         .lines()
         .enumerate()
         .filter_map(|(line_idx, line)| (!line.contains('#')).then_some(line_idx))
         .collect_vec();
+
     empty_rows
         .iter()
         .enumerate()
@@ -81,14 +79,12 @@ fn expand(og_universe: &str, expansion_facter: usize) -> Vec<String> {
     let mut empty_columns: Vec<usize> = Vec::new();
 
     for i in 0..row_length {
-        match lines
-            .iter()
-            .all(|line| line.chars().nth(i).expect("A character") == '.')
-        {
+        match lines.iter().all(|line| line.chars().nth(i).unwrap() == '.') {
             true => empty_columns.push(i),
             false => continue,
         }
     }
+
     empty_columns
         .iter()
         .enumerate()
@@ -99,6 +95,7 @@ fn expand(og_universe: &str, expansion_facter: usize) -> Vec<String> {
                 });
             }
         });
+
     lines
 }
 

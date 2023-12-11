@@ -1,6 +1,5 @@
-use std::collections::BTreeMap;
-
 use itertools::Itertools;
+use std::collections::BTreeMap;
 
 fn main() {
     let input = include_str!("./input1.txt");
@@ -15,7 +14,7 @@ struct Location {
 }
 
 fn part1(input: &str) -> String {
-    const PREDICT_AT: usize = 1000000;
+    const PREDICT_AT: usize = 100;
     let expansion_test_cases: [usize; 3] = [2, 10, 100];
 
     let data = expansion_test_cases
@@ -36,15 +35,54 @@ fn part1(input: &str) -> String {
     predicted.to_string()
 }
 
+fn get_total_distances(og_universe: &str, expansion_factor: usize) -> f64 {
+    let expanded_universe = expand(og_universe, expansion_factor);
+
+    let grid = expanded_universe
+        .iter()
+        .enumerate()
+        .flat_map(|(y_index, line)| {
+            line.chars().enumerate().map(move |(x_index, character)| {
+                let grid_location = Location {
+                    x: x_index as u32,
+                    y: y_index as u32,
+                };
+                match character == '#' {
+                    true => (grid_location, true),
+                    false => (grid_location, false),
+                }
+            })
+        })
+        .collect::<BTreeMap<Location, bool>>();
+
+    let galaxies = grid
+        .iter()
+        .filter_map(|(location, is_galaxy)| is_galaxy.then_some(location))
+        .collect_vec();
+
+    let galaxy_combos = galaxies.iter().combinations(2).collect_vec();
+
+    galaxy_combos
+        .iter()
+        .map(|combo| {
+            ((combo[1].x as f64 - combo[0].x as f64).abs()
+                + (combo[1].y as f64 - combo[0].y as f64).abs())
+            .ceil()
+        })
+        .sum::<f64>()
+}
+
 fn expand(input_universe: &str, expansion_factor: usize) -> Vec<String> {
-    let row_length = input_universe.lines().next().expect("a line").len();
+    let row_length = input_universe.lines().next().unwrap().len();
     let empty_line = ".".repeat(row_length);
     let mut lines = input_universe.lines().map_into::<String>().collect_vec();
+
     let empty_rows = input_universe
         .lines()
         .enumerate()
         .filter_map(|(line_idx, line)| (!line.contains('#')).then_some(line_idx))
         .collect_vec();
+
     empty_rows
         .iter()
         .enumerate()
@@ -61,14 +99,12 @@ fn expand(input_universe: &str, expansion_factor: usize) -> Vec<String> {
     let mut empty_columns: Vec<usize> = Vec::new();
 
     for i in 0..row_length {
-        match lines
-            .iter()
-            .all(|line| line.chars().nth(i).expect("A character") == '.')
-        {
+        match lines.iter().all(|line| line.chars().nth(i).unwrap() == '.') {
             true => empty_columns.push(i),
             false => continue,
         }
     }
+
     empty_columns
         .iter()
         .enumerate()
@@ -79,41 +115,10 @@ fn expand(input_universe: &str, expansion_factor: usize) -> Vec<String> {
                 });
             }
         });
+
     lines
 }
-fn get_total_distances(og_universe: &str, expansion_factor: usize) -> f64 {
-    let universe = expand(og_universe, expansion_factor);
 
-    let grid = universe
-        .iter()
-        .enumerate()
-        .flat_map(|(y_index, line)| {
-            line.chars().enumerate().map(move |(x_index, character)| {
-                let grid_location = Location {
-                    x: x_index as u32,
-                    y: y_index as u32,
-                };
-                match character == '#' {
-                    true => (grid_location, true),
-                    false => (grid_location, false),
-                }
-            })
-        })
-        .collect::<BTreeMap<Location, bool>>();
-    let galaxies = grid
-        .iter()
-        .filter_map(|(location, is_galaxy)| is_galaxy.then_some(location))
-        .collect_vec();
-    let galaxy_combos = galaxies.iter().combinations(2).collect_vec();
-    galaxy_combos
-        .iter()
-        .map(|combo| {
-            ((combo[1].x as f64 - combo[0].x as f64).abs()
-                + (combo[1].y as f64 - combo[0].y as f64).abs())
-            .ceil()
-        })
-        .sum::<f64>()
-}
 #[cfg(test)]
 mod tests {
     use super::*;
