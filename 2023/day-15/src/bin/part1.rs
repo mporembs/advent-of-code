@@ -1,5 +1,3 @@
-use itertools::Itertools;
-
 fn main() {
     let input = include_str!("./input1.txt");
     let output = part1(input);
@@ -8,7 +6,22 @@ fn main() {
 
 fn part1(input: &str) -> String {
     input
-    "0".to_string()
+        .split(',')
+        .map(|instruction| hash(instruction) as usize)
+        .sum::<usize>()
+        .to_string()
+    // dbg!(test);
+    // "0".to_string()
+}
+
+fn hash(input: &str) -> u8 {
+    input.chars().fold(0, |acc, ch| {
+        // todo!();
+        let ch_u8 = ch as u8;
+        (((acc as u16 + ch_u8 as u16) * 17) % 256)
+            .try_into()
+            .unwrap()
+    })
 }
 
 #[cfg(test)]
