@@ -70,9 +70,6 @@ fn part1(input: &str) -> String {
 
 fn dig_cube(grid: &mut Vec<Cube>, direction: Direction, color: &str, quant: usize) -> () {
     for _ in 0..quant {
-        if grid.is_empty() {
-            continue;
-        }
         let last_cube = grid.get(grid.len() - 1).unwrap();
 
         let new_location = match direction {
