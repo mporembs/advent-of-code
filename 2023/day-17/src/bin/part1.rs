@@ -1,11 +1,9 @@
 use itertools::Itertools;
-use petgraph::algo::astar;
-use petgraph::dot::{Config, Dot};
 use petgraph::graph::{Graph, NodeIndex};
-use petgraph::visit::{EdgeCount, EdgeRef, IntoEdges, NodeRef, VisitMap, Visitable};
+use petgraph::visit::{EdgeRef, VisitMap, Visitable};
 use std::cmp::Ordering;
 use std::collections::hash_map::Entry::{Occupied, Vacant};
-use std::collections::{BinaryHeap, HashMap, HashSet, VecDeque};
+use std::collections::{BinaryHeap, HashMap};
 use std::fmt;
 
 #[derive(Debug, Clone, Copy)]
@@ -103,7 +101,7 @@ fn part1(input: &str) -> String {
         .iter()
         .tuple_windows::<(_, _)>()
         .flat_map(|vec_tuples| vec_tuples.0.iter().zip(vec_tuples.1).collect_vec())
-        .map(|(tuple)| {
+        .map(|tuple| {
             graph.add_edge(*tuple.0, *tuple.1, EdgeDirection::Down);
             graph.add_edge(*tuple.1, *tuple.0, EdgeDirection::Up);
         })
