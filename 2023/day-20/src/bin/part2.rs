@@ -6,10 +6,7 @@ use nom::{
     sequence::{preceded, tuple},
     IResult,
 };
-use std::{
-    collections::{HashMap, VecDeque},
-    os::unix::fs::MetadataExt,
-};
+use std::collections::{HashMap, VecDeque};
 
 fn main() {
     let input = include_str!("./input1.txt");
