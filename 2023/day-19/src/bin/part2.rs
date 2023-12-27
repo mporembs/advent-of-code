@@ -1,6 +1,7 @@
 use std::{
+    clone,
     cmp::Ordering,
-    collections::{vec_deque, BTreeMap, VecDeque},
+    collections::{BTreeMap, VecDeque},
     ops::Range,
 };
 
@@ -30,16 +31,73 @@ fn part2(input: &str) -> String {
         })
         .collect::<BTreeMap<String, Workflow>>();
 
-    let mut range_collections: BTreeMap<&str, Vec<RangeCollection>> = BTreeMap::new();
-    let mut workflow_queue: VecDeque<&Workflow> = VecDeque::new();
-    workflow_queue.push_back(workflows.get(&String::from("in")).unwrap());
+    let mut range_collections: BTreeMap<String, RangeCollection> = BTreeMap::new();
+    let mut workflow_queue: VecDeque<(&Workflow, String)> = VecDeque::new();
+    workflow_queue.push_back((
+        workflows.get(&String::from("in")).unwrap(),
+        String::from("st0"),
+    ));
 
-    while let Some(workflow) = workflow_queue.pop_front() {
-        dbg!(workflow);
-        todo!()
+    let mut new_rc = RangeCollection::new();
+    new_rc.lineage.push(String::from("st"));
+    range_collections.insert(String::from("st0"), new_rc);
+
+    while let Some((workflow, range_target)) = workflow_queue.pop_front() {
+        // dbg!(&range_collections);
+        // dbg!(&workflow_queue);
+        let base_range_coll = range_collections.remove(&range_target).unwrap();
+        workflow
+            .filters
+            .iter()
+            .enumerate()
+            .for_each(|(filter_idx, filter)| {
+                let key = workflow.name.clone() + &filter_idx.to_string();
+                let mut rc = base_range_coll.clone();
+                let target = filter.target.get_target_char();
+                let split_point = filter.target.get_target_val();
+                let new_range = match filter.test_type {
+                    Ordering::Less => 1..split_point.clone(),
+                    Ordering::Equal => unreachable!(),
+                    Ordering::Greater => split_point.clone() + 1..rc.x.end as u32,
+                };
+                match target {
+                    'x' => rc.x = new_range,
+                    'm' => rc.m = new_range,
+                    'a' => rc.a = new_range,
+                    's' => rc.s = new_range,
+                    _ => unreachable!(),
+                }
+                rc.lineage.push(workflow.name.to_string());
+
+                match &filter.destination {
+                    Result::Accept => rc.result = Some(Result::Accept),
+                    Result::Reject => rc.result = Some(Result::Reject),
+                    Result::Workflow(dest) => {
+                        workflow_queue.push_back((workflows.get(dest).unwrap(), key.clone()));
+                    }
+                }
+                range_collections.insert(key, rc);
+            });
+        if let Result::Workflow(ft) = &workflow.fallthrough {
+            range_collections.insert(workflow.name.clone(), base_range_coll);
+            {
+                workflow_queue.push_back((workflows.get(ft).unwrap(), workflow.name.clone()));
+            }
+        }
     }
 
-    "0".to_string()
+    let accepted = range_collections
+        .iter()
+        .filter(|(key, collection)| match collection.get_result() {
+            Result::Accept => true,
+            Result::Reject => false,
+            Result::Workflow(_) => false,
+        })
+        .fold(0, |acc, (key, filtered_range)| {
+            acc + filtered_range.length()
+        });
+    // dbg!(accepted);
+    accepted.to_string()
 }
 
 fn parse_to_groups(input: &str) -> IResult<&str, &str> {
@@ -111,8 +169,11 @@ fn parse_workflow(input: &str) -> IResult<&str, Workflow> {
     ))
 }
 
+#[allow(dead_code)]
+#[derive(Debug)]
 struct RangeCollection {
     lineage: Vec<String>,
+    result: Option<Result>,
     x: Range<u32>,
     m: Range<u32>,
     a: Range<u32>,
@@ -123,20 +184,21 @@ impl RangeCollection {
     fn new() -> Self {
         RangeCollection {
             lineage: Vec::new(),
+            result: None,
             x: Range {
-                start: 0,
+                start: 1,
                 end: 4000,
             },
             m: Range {
-                start: 0,
+                start: 1,
                 end: 4000,
             },
             a: Range {
-                start: 0,
+                start: 1,
                 end: 4000,
             },
             s: Range {
-                start: 0,
+                start: 1,
                 end: 4000,
             },
         }
@@ -145,15 +207,23 @@ impl RangeCollection {
     fn clone(&self) -> Self {
         RangeCollection {
             lineage: self.lineage.clone(),
+            result: self.result.clone(),
             x: self.x.clone(),
             m: self.x.clone(),
             a: self.x.clone(),
             s: self.x.clone(),
         }
     }
+    fn get_result(&self) -> Result {
+        self.clone().result.unwrap()
+    }
+
+    fn length(&self) -> u64 {
+        self.x.len() as u64 * self.m.len() as u64 * self.a.len() as u64 * self.s.len() as u64
+    }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 
 enum Target {
     X(u32),
@@ -196,14 +266,16 @@ enum Comparision {
     LessThan,
 }
 
-#[derive(Debug)]
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
 struct Filter {
     target: Target,
     test_type: Ordering,
     destination: Result,
 }
 
-#[derive(Debug)]
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
 struct Workflow {
     name: String,
     filters: Vec<Filter>,
