@@ -1,5 +1,4 @@
 use std::{
-    clone,
     cmp::Ordering,
     collections::{BTreeMap, VecDeque},
     ops::Range,
@@ -43,9 +42,7 @@ fn part2(input: &str) -> String {
     range_collections.insert(String::from("st0"), new_rc);
 
     while let Some((workflow, range_target)) = workflow_queue.pop_front() {
-        // dbg!(&range_collections);
-        // dbg!(&workflow_queue);
-        let base_range_coll = range_collections.remove(&range_target).unwrap();
+        let mut base_range_coll = range_collections.remove(&range_target).unwrap();
         workflow
             .filters
             .iter()
@@ -56,15 +53,57 @@ fn part2(input: &str) -> String {
                 let target = filter.target.get_target_char();
                 let split_point = filter.target.get_target_val();
                 let new_range = match filter.test_type {
-                    Ordering::Less => 1..split_point.clone(),
+                    Ordering::Less => match target {
+                        'x' => rc.x.start..split_point.clone(),
+                        'm' => rc.m.start..split_point.clone(),
+                        'a' => rc.a.start..split_point.clone(),
+                        's' => rc.s.start..split_point.clone(),
+                        _ => unreachable!(),
+                    },
                     Ordering::Equal => unreachable!(),
-                    Ordering::Greater => split_point.clone() + 1..rc.x.end as u32,
+                    Ordering::Greater => match target {
+                        'x' => split_point.clone() + 1..rc.x.end as u32,
+                        'm' => split_point.clone() + 1..rc.m.end as u32,
+                        'a' => split_point.clone() + 1..rc.a.end as u32,
+                        's' => split_point.clone() + 1..rc.s.end as u32,
+                        _ => unreachable!(),
+                    },
                 };
+                let opp_range = match filter.test_type {
+                    Ordering::Greater => match target {
+                        'x' => rc.x.start..split_point.clone() + 1,
+                        'm' => rc.m.start..split_point.clone() + 1,
+                        'a' => rc.a.start..split_point.clone() + 1,
+                        's' => rc.s.start..split_point.clone() + 1,
+                        _ => unreachable!(),
+                    },
+                    Ordering::Equal => unreachable!(),
+                    Ordering::Less => match target {
+                        'x' => split_point.clone()..rc.x.end as u32,
+                        'm' => split_point.clone()..rc.m.end as u32,
+                        'a' => split_point.clone()..rc.a.end as u32,
+                        's' => split_point.clone()..rc.s.end as u32,
+                        _ => unreachable!(),
+                    },
+                };
+
                 match target {
-                    'x' => rc.x = new_range,
-                    'm' => rc.m = new_range,
-                    'a' => rc.a = new_range,
-                    's' => rc.s = new_range,
+                    'x' => {
+                        rc.x = new_range;
+                        base_range_coll.x = opp_range
+                    }
+                    'm' => {
+                        rc.m = new_range;
+                        base_range_coll.m = opp_range
+                    }
+                    'a' => {
+                        rc.a = new_range;
+                        base_range_coll.a = opp_range
+                    }
+                    's' => {
+                        rc.s = new_range;
+                        base_range_coll.s = opp_range
+                    }
                     _ => unreachable!(),
                 }
                 rc.lineage.push(workflow.name.to_string());
@@ -78,25 +117,34 @@ fn part2(input: &str) -> String {
                 }
                 range_collections.insert(key, rc);
             });
-        if let Result::Workflow(ft) = &workflow.fallthrough {
-            range_collections.insert(workflow.name.clone(), base_range_coll);
-            {
-                workflow_queue.push_back((workflows.get(ft).unwrap(), workflow.name.clone()));
+        base_range_coll.lineage.push(workflow.name.clone());
+        // dbg!(&base_range_coll);
+        match &workflow.fallthrough {
+            Result::Accept => {
+                base_range_coll.result = Some(Result::Accept);
+                range_collections.insert(workflow.name.clone(), base_range_coll);
+            }
+            Result::Reject => {
+                base_range_coll.result = Some(Result::Reject);
+                range_collections.insert(workflow.name.clone(), base_range_coll);
+            }
+            Result::Workflow(ft) => {
+                range_collections.insert(workflow.name.clone(), base_range_coll);
+                {
+                    workflow_queue.push_back((workflows.get(ft).unwrap(), workflow.name.clone()));
+                }
             }
         }
     }
 
     let accepted = range_collections
         .iter()
-        .filter(|(key, collection)| match collection.get_result() {
+        .filter(|(_, collection)| match collection.get_result() {
             Result::Accept => true,
             Result::Reject => false,
             Result::Workflow(_) => false,
         })
-        .fold(0, |acc, (key, filtered_range)| {
-            acc + filtered_range.length()
-        });
-    // dbg!(accepted);
+        .fold(0, |acc, (_, filtered_range)| acc + filtered_range.length());
     accepted.to_string()
 }
 
@@ -105,10 +153,9 @@ fn parse_to_groups(input: &str) -> IResult<&str, &str> {
 }
 
 fn collect_filter(input: &str) -> IResult<&str, Filter> {
-    // dbg!(input);
     let (dest, test) = terminated(take_until(":"), tag(":"))(input)?;
     let (remaining, parsed_des) = take_until(",")(dest)?;
-    // dbg!(test);
+
     let (_, (target, test, value)) = tuple((take(1usize), take(1usize), u32))(test)?;
 
     let fin_target = match target {
@@ -130,10 +177,7 @@ fn collect_filter(input: &str) -> IResult<&str, Filter> {
         "R" => Result::Reject,
         wf => Result::Workflow(wf.to_string()),
     };
-    // let (name,test,value,dest) = tuple(take(1usize),take(1usize))
-    // dbg!(&fin_target);
-    // dbg!(&fin_test);
-    // dbg!(&final_dest);
+
     Ok((
         remaining,
         Filter {
@@ -187,19 +231,19 @@ impl RangeCollection {
             result: None,
             x: Range {
                 start: 1,
-                end: 4000,
+                end: 4001,
             },
             m: Range {
                 start: 1,
-                end: 4000,
+                end: 4001,
             },
             a: Range {
                 start: 1,
-                end: 4000,
+                end: 4001,
             },
             s: Range {
                 start: 1,
-                end: 4000,
+                end: 4001,
             },
         }
     }
@@ -209,9 +253,9 @@ impl RangeCollection {
             lineage: self.lineage.clone(),
             result: self.result.clone(),
             x: self.x.clone(),
-            m: self.x.clone(),
-            a: self.x.clone(),
-            s: self.x.clone(),
+            m: self.m.clone(),
+            a: self.a.clone(),
+            s: self.s.clone(),
         }
     }
     fn get_result(&self) -> Result {
