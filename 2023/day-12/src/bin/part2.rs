@@ -13,11 +13,11 @@ use nom::{
 
 fn main() {
     let input = include_str!("./input1.txt");
-    let output = part1(input);
+    let output = part2(input);
     dbg!(output);
 }
 
-fn part1(input: &str) -> String {
+fn part2(input: &str) -> String {
     let (_, puzzles) = parse_puzzles(input).unwrap();
 
     let total_options = puzzles.iter().map(|puzzle| puzzle.solve()).sum::<usize>();
@@ -125,12 +125,20 @@ impl Puzzle {
 }
 
 fn parse_batches(input: &str) -> IResult<&str, Vec<u32>> {
-    separated_list0(tag(","), u32)(input)
+    let (rem, raw_batches) = separated_list0(tag(","), u32)(input)?;
+    let expanded_batches = Vec::from_iter(raw_batches.repeat(5));
+
+    Ok((rem, expanded_batches))
 }
 
 fn parse_springs(input: &str) -> IResult<&str, String> {
-    let (rem, slice) = take_until(" ")(input)?;
-    Ok((rem, slice.to_string()))
+    let (rem, raw_slice) = take_until(" ")(input)?;
+    let mut expanded_slice = raw_slice.repeat(5);
+    for i in 1..5 {
+        expanded_slice.insert((i * raw_slice.len()) + (i - 1), '?');
+    }
+
+    Ok((rem, expanded_slice))
 }
 
 fn parse_puzzle(input: &str) -> IResult<&str, Puzzle> {
@@ -155,14 +163,14 @@ mod tests {
 
     #[test]
     fn it_works() {
-        let result = part1(
+        let result = part2(
             "???.### 1,1,3
 .??..??...?##. 1,1,3
 ?#?#?#?#?#?#?#? 1,3,1,6
-####.#...#... 4,1,1
+????.#...#... 4,1,1
 ????.######..#####. 1,6,5
 ?###???????? 3,2,1",
         );
-        assert_eq!(result, "21".to_string());
+        assert_eq!(result, "525152".to_string());
     }
 }

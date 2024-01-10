@@ -7,4 +7,5 @@ edition = "2021"
 
 [dependencies]
 itertools = "0.12.0"
+nom = "7.1.3"
 permutohedron = "0.2.4"
