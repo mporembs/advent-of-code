@@ -51,9 +51,8 @@ impl State {
 
 impl Puzzle {
     fn solve(&self) -> usize {
-        let mut state_map: HashMap<State, usize> = HashMap::new();
+        let mut state_map: HashMap<State, usize> = HashMap::from([(State::new(0, 0, false), 1)]);
         let mut new_states: HashMap<State, usize> = HashMap::new();
-        state_map.insert(State::new(0, 0, false), 1);
 
         let mut input_chars = self.line.chars();
 
@@ -80,11 +79,14 @@ impl Puzzle {
                                 .and_modify(|current| *current += *count)
                                 .or_insert(*count);
                         }
+
                         cc += 1;
+
                         if cc == self.group_sizes[ci] as usize {
                             ci += 1;
                             (cc, ed) = (0, true);
                         }
+
                         new_states
                             .entry(State {
                                 groups_satisfied: ci,
@@ -92,7 +94,8 @@ impl Puzzle {
                                 expecting_dot: ed,
                             })
                             .or_insert(*count);
-                    }
+                    } //match arm
+
                     ('.' | '?', _, _, false) => {
                         ed = false;
                         new_states
@@ -104,6 +107,7 @@ impl Puzzle {
                             .and_modify(|current| *current += *count)
                             .or_insert(*count);
                     }
+
                     _ => (),
                 }
             });
