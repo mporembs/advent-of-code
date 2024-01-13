@@ -1,28 +1,32 @@
+use glam::IVec2;
 use itertools::Itertools;
-use petgraph::graph::{Graph, NodeIndex};
-use petgraph::visit::{EdgeRef, VisitMap, Visitable};
 use std::cmp::Ordering;
-use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::{BinaryHeap, HashMap};
 use std::fmt;
 
-#[derive(Debug, Clone, Copy)]
-
-struct Node {
-    x: usize,
-    y: usize,
-    weight: u8,
+// Huge struggle, heavy borrowing from:
+// https://github.com/AxlLind/AdventOfCode2023/blob/main/src/bin/17.rs
+//
+////
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+struct State {
+    position: IVec2,
+    direction: EdgeDirection,
 }
 
-#[derive(Debug, Clone)]
-struct NodeData {
-    node: NodeIndex,
-    sequence: Vec<EdgeDirection>,
+impl State {
+    fn new(r: i32, c: i32, d: EdgeDirection) -> Self {
+        State {
+            position: IVec2::new(c, r),
+            direction: d,
+        }
+    }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Copy)]
+#[derive(Debug, Clone, PartialEq, Eq, Copy, Hash)]
 
 enum EdgeDirection {
+    Start,
     Right,
     Down,
     Left,
@@ -36,19 +40,17 @@ impl EdgeDirection {
             EdgeDirection::Down => EdgeDirection::Up,
             EdgeDirection::Left => EdgeDirection::Right,
             EdgeDirection::Up => EdgeDirection::Down,
+            EdgeDirection::Start => EdgeDirection::Start,
         }
     }
-}
-
-impl<'a> fmt::Display for Node {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}, {}", self.x, self.y)
-    }
-}
-
-impl fmt::Display for EdgeDirection {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:?}", self)
+    fn coords(&self) -> IVec2 {
+        match &self {
+            EdgeDirection::Right => IVec2::X,
+            EdgeDirection::Down => IVec2::Y,
+            EdgeDirection::Left => IVec2::NEG_X,
+            EdgeDirection::Up => IVec2::NEG_Y,
+            EdgeDirection::Start => IVec2::ZERO,
+        }
     }
 }
 
@@ -59,174 +61,72 @@ fn main() {
 }
 
 fn part1(input: &str) -> String {
-    let num_rows = input.lines().count();
-    let num_cols = input.lines().next().unwrap().chars().count();
+    let grid = input.lines().map(str::as_bytes).collect_vec();
+    let min_goal_score = dijkstra(&grid, 4, 10).unwrap_or(0);
 
-    let mut graph: Graph<Node, EdgeDirection> = Graph::new();
+    min_goal_score.to_string()
+}
 
-    let nodes = input
-        .lines()
-        .enumerate()
-        .map(|(y_index, line)| {
-            line.chars()
-                .enumerate()
-                .map(|(x_index, ch)| {
-                    graph.add_node(Node {
-                        x: x_index,
-                        y: y_index,
-                        weight: ch.to_digit(10).unwrap() as u8,
-                    })
-                })
-                .collect_vec()
-        })
-        .collect_vec();
+fn dijkstra(grid: &[&[u8]], min_step: u8, max_step: u8) -> Option<i64> {
+    let start = State::new(0, 0, EdgeDirection::Start);
+    let goal = IVec2::new(grid[0].len() as i32 - 1, grid.len() as i32 - 1);
 
-    let start = *nodes.iter().flatten().next().unwrap();
-    let goal = *nodes.iter().flatten().last().unwrap();
+    let mut scores: HashMap<State, i64> = HashMap::new();
+    let mut queue: BinaryHeap<MinScored<i64, State>> = BinaryHeap::from_iter([MinScored(0, start)]);
 
-    let right_edges = nodes
-        .iter()
-        .map(|node_index_vec| {
-            node_index_vec
-                .windows(2)
-                .map(|window| {
-                    graph.add_edge(window[0], window[1], EdgeDirection::Right);
-                    graph.add_edge(window[1], window[0], EdgeDirection::Left);
-                })
-                .collect_vec()
-        })
-        .collect_vec();
+    while let Some(MinScored(cost, state)) = queue.pop() {
+        if state.position == goal {
+            return Some(cost);
+        }
 
-    let down_edges = nodes
-        .iter()
-        .tuple_windows::<(_, _)>()
-        .flat_map(|vec_tuples| vec_tuples.0.iter().zip(vec_tuples.1).collect_vec())
-        .map(|tuple| {
-            graph.add_edge(*tuple.0, *tuple.1, EdgeDirection::Down);
-            graph.add_edge(*tuple.1, *tuple.0, EdgeDirection::Up);
-        })
-        .collect_vec();
-
-    let mut visited = graph.visit_map();
-    let mut scores = HashMap::new();
-    //let mut predecessor = HashMap::new();
-    let mut visit_next = BinaryHeap::new();
-    scores.insert(start, 0);
-    visit_next.push(MinScored(
-        0,
-        NodeData {
-            node: start,
-            sequence: vec![],
-        },
-    ));
-
-    while let Some(MinScored(node_score, node_data)) = visit_next.pop() {
-        if visited.is_visited(&node_data.node) {
+        if scores
+            .get(&state)
+            .is_some_and(|&cached_score| -cost > cached_score)
+        {
             continue;
         }
 
-        if &goal == &node_data.node {
-            break;
-        }
+        for step_dir in [
+            EdgeDirection::Down,
+            EdgeDirection::Up,
+            EdgeDirection::Left,
+            EdgeDirection::Right,
+        ]
+        .iter()
+        .filter(|&&dir| dir != state.direction && dir != state.direction.reverse())
+        {
+            let mut next_cost = cost;
+            // dbg!(step_dir);
+            for dist in 1..=max_step {
+                let new_row = (state.position.y + step_dir.coords().y * dist as i32) as usize;
+                let new_col = (state.position.x + step_dir.coords().x * dist as i32) as usize;
+                if new_row >= grid.len() || new_col >= grid[0].len() {
+                    break;
+                }
+                next_cost += (grid[new_row][new_col] - b'0') as i64;
+                // println!("x:{new_col}, y:{new_row}, cost:{next_cost}");
 
-        // Check all the edges starting at this node
-        println!(
-            "Node# {:?} ------------------------",
-            &node_data.node.index()
-        );
-        for edge in graph.edges(node_data.node) {
-            let next = edge.target();
-
-            if visited.is_visited(&next) {
-                println!("  Edge to {:?} already visited", next);
-                continue;
-            }
-
-            let next_direction = edge.weight();
-            println!("  Edge {} to {:?}", next_direction, next);
-            // Clone the array of steps we've taken to get to the node we're currn
-            let mut curr_sequence = node_data.sequence.clone();
-
-            // Push in a step for coming into the starting node. NOT SURE if this is correct
-            // if curr_sequence.is_empty() {
-            //     curr_sequence.push(*next_direction);
-            // }
-
-            // Push the direction for this step into the copy of the previous array.
-            curr_sequence.push(*next_direction);
-
-            let len = curr_sequence.len();
-            if len > 3 {
-                let l3 = &curr_sequence[len - 3..];
-                if l3.iter().all_equal() {
-                    println!("    Illegal Move");
+                if dist < min_step {
                     continue;
                 }
-            }
-            let next_score = node_score + graph.node_weight(next).unwrap().weight;
-            println!(
-                "    Loss Value {}, Movement Sequence {:?}",
-                next_score, curr_sequence
-            );
-            match scores.entry(next) {
-                Occupied(ent) => {
-                    if next_score < *ent.get() {
-                        println!(
-                            "      Over writing a score of {} with lower score {}",
-                            *ent.get(),
-                            next_score
-                        );
-                        *ent.into_mut() = next_score;
-                        visit_next.push(MinScored(
-                            next_score,
-                            NodeData {
-                                node: next,
-                                sequence: curr_sequence,
-                            },
-                        ));
-                        //predecessor.insert(next.clone(), node.clone());
-                    }
-                    println!("      A lower score already exists.");
-                }
-                Vacant(ent) => {
-                    println!("      Inserting score");
-                    ent.insert(next_score);
-                    visit_next.push(MinScored(
-                        next_score,
-                        NodeData {
-                            node: next,
-                            sequence: curr_sequence,
-                        },
-                    ));
-                    //predecessor.insert(next.clone(), node.clone());
+
+                let new_state = State::new(new_row as i32, new_col as i32, step_dir.clone());
+
+                if next_cost < *scores.get(&new_state).unwrap_or(&i64::MAX) {
+                    scores.insert(new_state, next_cost);
+                    queue.push(MinScored(next_cost, new_state));
                 }
             }
         }
-        println!("");
-
-        visited.visit(node_data.node);
-        // dbg!(&visit_next);
     }
 
-    // let mut current = goal;
-    // let mut path = Vec::new();
-    // path.push(goal);
-
-    // while let Some(&previous) = came_from.get(&current) {
-    //     path.push(previous);
-    //     current = previous;
-    // }
-
-    // path.reverse();
-
-    // println!("{:?}", Dot::with_config(&graph, &[Config::EdgeIndexLabel]));
-    // dbg!(&scores);
-    dbg!(&scores.len());
-    dbg!(scores.get(&goal));
-    // dbg!(graph);
-    "0".to_string()
+    None
 }
 
+//  Makes the default BinaryHeap operate as minHeap, with "Reverse" stuff. Copied from Petgraph
+//  A* algo: https://github.com/petgraph/petgraph/blob/master/src/scored.rs
+//
+/////
 #[derive(Copy, Clone, Debug)]
 pub struct MinScored<K, T>(pub K, pub T);
 
@@ -268,29 +168,6 @@ impl<K: PartialOrd, T> Ord for MinScored<K, T> {
         }
     }
 }
-// fn get_source_weight(
-//     ed: EdgeReference<'_, EdgeDirection>,
-//     graph: &Graph<Node, EdgeDirection>,
-// ) -> u32 {
-//     let source_index = ed.target();
-//     graph.node_weight(source_index).unwrap().weight as u32
-// }
-
-// fn check_goal(
-//     current_node: NodeIndex,
-//     graph: &Graph<Node, EdgeDirection>,
-//     goal: NodeIndex,
-// ) -> bool {
-//     current_node == goal
-// }
-
-// fn no_clue_heuristic<N>(nid: N) -> u32 {
-//     0
-// }
-
-// fn make_graph(input: &str) -> Graph<Node, Direction> {
-//     todo!()
-// }
 
 #[cfg(test)]
 mod tests {
