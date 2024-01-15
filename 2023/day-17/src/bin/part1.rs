@@ -2,7 +2,6 @@ use glam::IVec2;
 use itertools::Itertools;
 use std::cmp::Ordering;
 use std::collections::{BinaryHeap, HashMap};
-use std::fmt;
 
 // Huge struggle, heavy borrowing from:
 // https://github.com/AxlLind/AdventOfCode2023/blob/main/src/bin/17.rs
